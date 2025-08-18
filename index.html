@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Channel Viewer</title>
+    <style>
+        :root {
+            --primary-color: #0088cc;
+            --secondary-color: #f5f5f5;
+            --border-color: #e0e0e0;
+            --text-color: #333;
+            --text-light: #666;
+            --bg-color: #fff;
+            --card-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: var(--secondary-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        h1 {
+            color: var(--primary-color);
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #006699;
+        }
+        
+        select, input {
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .message-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .message-card {
+            background-color: var(--bg-color);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: var(--card-shadow);
+            transition: transform 0.3s;
+        }
+        
+        .message-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .message-media {
+            width: 100%;
+            max-height: 200px;
+            object-fit: cover;
+        }
+        
+        .message-content {
+            padding: 15px;
+        }
+        
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: var(--text-light);
+        }
+        
+        .message-type {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+            text-transform: capitalize;
+        }
+        
+        .message-text {
+            margin-bottom: 10px;
+            word-break: break-word;
+        }
+        
+        .message-caption {
+            font-style: italic;
+            color: var(--text-light);
+            margin-top: 10px;
+            border-top: 1px dashed var(--border-color);
+            padding-top: 10px;
+        }
+        
+        .no-media {
+            background-color: var(--secondary-color);
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-light);
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-light);
+        }
+        
+        .sse-indicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: var(--primary-color);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            display: none;
+        }
+        
+        .config-info {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        @media (max-width: 768px) {
+            .message-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            
+            .controls {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Telegram Channel Viewer</h1>
+            <div class="controls">
+                <select id="filter-type">
+                    <option value="all">All types</option>
+                    <option value="text">Text</option>
+                    <option value="photo">Photo</option>
+                    <option value="video">Video</option>
+                    <option value="audio">Audio</option>
+                    <option value="document">Document</option>
+                </select>
+                <select id="sort-order">
+                    <option value="newest">Newest first</option>
+                    <option value="oldest">Oldest first</option>
+                </select>
+                <input type="number" id="limit" min="1" max="100" value="20" placeholder="Limit">
+                <button id="refresh-btn">Refresh</button>
+            </div>
+        </header>
+        
+        <div class="config-info">
+            <strong>Backend configuration:</strong>
+            <div id="backend-info"></div>
+        </div>
+        
+        <div id="message-container" class="message-grid">
+            <div class="loading">Loading messages...</div>
+        </div>
+    </div>
+    
+    <div id="sse-indicator" class="sse-indicator">New message received!</div>
+    
+    <script>
+        // ====== CONFIGURATION ======
+        const BACKEND_URL = "https://test.rtts.site"; // Замените на ваш реальный адрес бэкенда
+        const SSE_ENABLED = false; // Включить/отключить SSE (real-time обновления)
+        // ===========================
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const messageContainer = document.getElementById('message-container');
+            const filterType = document.getElementById('filter-type');
+            const sortOrder = document.getElementById('sort-order');
+            const limitInput = document.getElementById('limit');
+            const refreshBtn = document.getElementById('refresh-btn');
+            const sseIndicator = document.getElementById('sse-indicator');
+            const backendInfo = document.getElementById('backend-info');
+            
+            // Отображаем информацию о конфигурации
+            backendInfo.innerHTML = `
+                <div>Backend URL: <code>${BACKEND_URL}</code></div>
+                <div>SSE: ${SSE_ENABLED ? 'Enabled' : 'Disabled'}</div>
+            `;
+            
+            let allMessages = [];
+            let eventSource = null;
+            
+            // Initialize SSE connection
+            function initSSE() {
+                if (!SSE_ENABLED) return;
+                
+                if (eventSource) eventSource.close();
+                
+                eventSource = new EventSource(`${BACKEND_URL}/sse`);
+                
+                eventSource.onmessage = function(event) {
+                    const newMessage = JSON.parse(event.data);
+                    
+                    // Show notification
+                    sseIndicator.style.display = 'block';
+                    setTimeout(() => {
+                        sseIndicator.style.display = 'none';
+                    }, 3000);
+                    
+                    // Add to beginning of array
+                    allMessages.unshift(newMessage);
+                    
+                    // Apply filters and render
+                    filterAndRenderMessages();
+                };
+                
+                eventSource.onerror = function() {
+                    console.error('SSE connection error');
+                    // Try to reconnect after 5 seconds
+                    setTimeout(initSSE, 5000);
+                };
+            }
+            
+            // Fetch all messages from the API
+            async function fetchMessages() {
+                try {
+                    messageContainer.innerHTML = '<div class="loading">Loading messages...</div>';
+                    
+                    const response = await fetch(`${BACKEND_URL}/messages?limit=100`);
+                    if (!response.ok) throw new Error(`Failed to fetch messages: ${response.status}`);
+                    
+                    const messages = await response.json();
+                    allMessages = messages;
+                    
+                    filterAndRenderMessages();
+                } catch (error) {
+                    console.error('Error fetching messages:', error);
+                    messageContainer.innerHTML = `
+                        <div class="loading">
+                            Error loading messages: ${error.message}<br>
+                            Please check backend URL configuration and CORS settings
+                        </div>
+                    `;
+                }
+            }
+            
+            // Filter and render messages based on current settings
+            function filterAndRenderMessages() {
+                const typeFilter = filterType.value;
+                const sortDirection = sortOrder.value;
+                const limit = parseInt(limitInput.value) || 20;
+                
+                // Filter by type
+                let filteredMessages = typeFilter === 'all' 
+                    ? [...allMessages] 
+                    : allMessages.filter(msg => msg.type === typeFilter);
+                
+                // Sort by date
+                filteredMessages.sort((a, b) => {
+                    const dateA = new Date(a.date);
+                    const dateB = new Date(b.date);
+                    return sortDirection === 'newest' ? dateB - dateA : dateA - dateB;
+                });
+                
+                // Apply limit
+                filteredMessages = filteredMessages.slice(0, limit);
+                
+                renderMessages(filteredMessages);
+            }
+            
+            // Render messages to the DOM
+            function renderMessages(messages) {
+                if (messages.length === 0) {
+                    messageContainer.innerHTML = '<div class="loading">No messages found matching your criteria</div>';
+                    return;
+                }
+                
+                messageContainer.innerHTML = '';
+                
+                messages.forEach(message => {
+                    const messageCard = document.createElement('div');
+                    messageCard.className = 'message-card';
+                    
+                    let mediaHtml = '';
+                    if (message.media_url) {
+                        // Если media_url относительный, добавляем BASE_URL
+                        const mediaUrl = message.media_url.startsWith('http') 
+                            ? message.media_url 
+                            : `${BACKEND_URL}/${message.media_url}`;
+                            
+                        if (message.type === 'photo' || message.type === 'document') {
+                            mediaHtml = `<img src="${mediaUrl}" alt="Media" class="message-media">`;
+                        } else if (message.type === 'video') {
+                            mediaHtml = `
+                                <video controls class="message-media">
+                                    <source src="${mediaUrl}" type="video/mp4">
+                                    Your browser does not support the video tag.
+                                </video>
+                            `;
+                        } else if (message.type === 'audio') {
+                            mediaHtml = `
+                                <audio controls class="message-media" style="width: 100%">
+                                    <source src="${mediaUrl}" type="audio/mpeg">
+                                    Your browser does not support the audio element.
+                                </audio>
+                            `;
+                        }
+                    } else {
+                        mediaHtml = '<div class="no-media">No media available</div>';
+                    }
+                    
+                    const date = new Date(message.date).toLocaleString();
+                    
+                    messageCard.innerHTML = `
+                        ${mediaHtml}
+                        <div class="message-content">
+                            <div class="message-header">
+                                <span>${date}</span>
+                                <span class="message-type">${message.type}</span>
+                            </div>
+                            ${message.text ? `<div class="message-text">${message.text}</div>` : ''}
+                            ${message.caption ? `<div class="message-caption">${message.caption}</div>` : ''}
+                        </div>
+                    `;
+                    
+                    messageContainer.appendChild(messageCard);
+                });
+            }
+            
+            // Event listeners
+            filterType.addEventListener('change', filterAndRenderMessages);
+            sortOrder.addEventListener('change', filterAndRenderMessages);
+            limitInput.addEventListener('change', filterAndRenderMessages);
+            refreshBtn.addEventListener('click', fetchMessages);
+            
+            // Initial load
+            if (SSE_ENABLED) initSSE();
+            fetchMessages();
+        });
+    </script>
+</body>
+</html>

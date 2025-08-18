@@ -1,221 +1,226 @@
-from fastapi import FastAPI, Response, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Optional, Dict, AsyncGenerator
-import httpx
-from telegram import Update, Message
-from telegram.ext import Application, MessageHandler, filters, CallbackContext
+"""
+Telegram Channel Parser Backend (aiogram 3.x)
+FastAPI + aiogram
+
+Функционал:
+1. Парсинг всех сообщений из канала (текст, фото, видео, аудио)
+2. Хранение в хронологическом порядке (от старых к новым)
+3. Регулярная проверка новых сообщений
+4. Удаление удаленных из канала сообщений
+5. API для доступа к сообщениям
+"""
+
+import os
 import asyncio
 import logging
-from datetime import datetime, timedelta
-import json
-import os
-from enum import Enum
+from datetime import datetime
+from typing import List, Dict, AsyncGenerator, Optional
+
+from fastapi import FastAPI, Response
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from dotenv import load_dotenv
+from aiogram import Bot, Dispatcher, types
+from aiogram.enums import ChatType, ParseMode
+
+# --- Конфигурация ---
 load_dotenv()
 
-# Настройки
-TELEGRAM_CHANNEL = os.getenv("TELEGRAM_CHANNEL")
-TELEGRAM_API_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-MESSAGE_LIMIT = 100
-CLEANUP_INTERVAL = 3600  # Проверка каждые 3600 секунд (1 час)
-LAST_MESSAGES_TO_CHECK = 20  # Количество последних сообщений для проверки
+# Настройки из переменных окружения
+TELEGRAM_CHANNEL = os.getenv("TELEGRAM_CHANNEL")  # Например: "@my_channel"
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")  # Токен от @BotFather
 
-app = FastAPI(title="Telegram Channel Messages API")
+# Константы приложения
+MESSAGE_LIMIT = 1000  # Максимальное количество хранимых сообщений
+CHECK_INTERVAL = 300  # Интервал проверки новых сообщений (секунды)
+LAST_MESSAGES_TO_CHECK = 50  # Сколько последних сообщений проверять на удаление
+API_MESSAGES_LIMIT = 100  # Лимит сообщений для API
 
-# CORS настройки
+# --- Инициализация приложения ---
+app = FastAPI(title="Telegram Channel Parser API")
+
+# Настройка CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Хранилище сообщений
-messages_store = []
+# Глобальное хранилище сообщений
+messages_store: List[Dict] = []
 
-class MessageType(str, Enum):
-    TEXT = "text"
-    PHOTO = "photo"
-    VIDEO = "video"
-    AUDIO = "audio"
-    DOCUMENT = "document"
+# Инициализация aiogram
+bot = Bot(token=TELEGRAM_BOT_TOKEN, parse_mode=ParseMode.HTML)
+dp = Dispatcher()
 
-class TelegramMessage(BaseModel):
-    id: int
-    date: datetime
-    type: MessageType
-    text: Optional[str] = None
-    media_url: Optional[str] = None
-    caption: Optional[str] = None
+# --- Модели данных ---
+class ChannelMessage(BaseModel):
+    """Модель для представления сообщения канала"""
+    id: int  # ID сообщения в Telegram
+    type: str  # Тип сообщения: text, photo, video, audio
+    date_time: datetime  # Дата и время сообщения
+    url_media: Optional[str] = None  # URL медиафайла (если есть)
+    category: str = "default"  # Категория сообщения
+    text: Optional[str] = None  # Текст сообщения или подпись
 
-@app.get("/messages", response_model=List[TelegramMessage])
-async def get_messages(limit: int = 10):
-    return messages_store[:limit]
-
-async def sse_generator() -> AsyncGenerator[str, None]:
-    last_id = None
-    while True:
-        if messages_store:
-            current_id = messages_store[0]['id']
-            if current_id != last_id:
-                last_id = current_id
-                yield f"data: {json.dumps(messages_store[0], default=str)}\n\n"
-        await asyncio.sleep(0.5)
-
-@app.get("/sse")
-async def message_stream():
-    headers = {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        "Connection": "keep-alive",
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "*"
-    }
-    return Response(
-        content=sse_generator(),
-        media_type="text/event-stream",
-        headers=headers
-    )
-
-async def get_media_url(message: Message, bot, file_id: str) -> str:
-    file = await bot.get_file(file_id)
-    return f"{file.file_path}"
-
-async def handle_message(update: Update, context: CallbackContext):
-    message = update.channel_post
-    if not message:
-        return
-
+# --- Основные функции ---
+async def parse_message(message: types.Message) -> Dict:
+    """
+    Парсит сообщение из Telegram в унифицированный формат
+    
+    Args:
+        message: Объект сообщения из aiogram
+    
+    Returns:
+        Словарь с данными сообщения
+    """
     msg_data = {
         "id": message.message_id,
-        "date": message.date,
-        "category": "Тест",
-        "type": MessageType.TEXT,
-        "text": message.text,
-        "media_url": None,
-        "caption": message.caption
+        "date_time": message.date,
+        "category": "default",
+        "text": message.text or message.caption,
     }
 
+    # Определяем тип сообщения и URL медиа
     if message.photo:
         msg_data.update({
-            "type": MessageType.PHOTO,
-            "media_url": await get_media_url(message, context.bot, message.photo[-1].file_id)
+            "type": "photo",
+            "url_media": await get_media_url(message.photo[-1].file_id)
         })
     elif message.video:
         msg_data.update({
-            "type": MessageType.VIDEO,
-            "media_url": await get_media_url(message, context.bot, message.video.file_id)
+            "type": "video",
+            "url_media": await get_media_url(message.video.file_id)
         })
     elif message.audio:
         msg_data.update({
-            "type": MessageType.AUDIO,
-            "media_url": await get_media_url(message, context.bot, message.audio.file_id)
+            "type": "audio",
+            "url_media": await get_media_url(message.audio.file_id)
         })
-    elif message.document:
-        msg_data.update({
-            "type": MessageType.DOCUMENT,
-            "media_url": await get_media_url(message, context.bot, message.document.file_id)
-        })
+    else:
+        msg_data["type"] = "text"
 
-    messages_store.insert(0, msg_data)
-    if len(messages_store) > MESSAGE_LIMIT:
-        messages_store.pop()
+    return msg_data
 
-async def load_history_messages(bot):
-    """Загружает историю сообщений из канала (от старых к новым)"""
+async def get_media_url(file_id: str) -> str:
+    """Получает прямой URL для медиафайла"""
+    file = await bot.get_file(file_id)
+    return f"https://api.telegram.org/file/bot{TELEGRAM_BOT_TOKEN}/{file.file_path}"
+
+async def load_all_messages():
+    """Загружает всю историю сообщений из канала"""
+    global messages_store
+    
     try:
-        async for message in bot.get_chat_history(TELEGRAM_CHANNEL, limit=MESSAGE_LIMIT):
-            msg_data = {
-                "id": message.message_id,
-                "date": message.date,
-                "category": "Тест",
-                "type": MessageType.TEXT,
-                "text": message.text,
-                "media_url": None,
-                "caption": message.caption
-            }
-
-            if message.photo:
-                msg_data.update({
-                    "type": MessageType.PHOTO,
-                    "media_url": await get_media_url(message, bot, message.photo[-1].file_id)
-                })
-            elif message.video:
-                msg_data.update({
-                    "type": MessageType.VIDEO,
-                    "media_url": await get_media_url(message, bot, message.video.file_id)
-                })
-            elif message.audio:
-                msg_data.update({
-                    "type": MessageType.AUDIO,
-                    "media_url": await get_media_url(message, bot, message.audio.file_id)
-                })
-            elif message.document:
-                msg_data.update({
-                    "type": MessageType.DOCUMENT,
-                    "media_url": await get_media_url(message, bot, message.document.file_id)
-                })
-
-            # Добавляем в начало списка (чтобы в итоге получить порядок от старых к новым)
-            messages_store.insert(0, msg_data)
+        # Для aiogram нужно использовать get_chat_history
+        async for message in bot.get_chat_history(TELEGRAM_CHANNEL):
+            parsed = await parse_message(message)
+            messages_store.append(parsed)
             
-            # Ограничиваем размер хранилища
-            if len(messages_store) > MESSAGE_LIMIT:
-                messages_store.pop()
-                
+            if len(messages_store) >= MESSAGE_LIMIT:
+                break
+        
+        # Сортируем от старых к новым
+        messages_store.sort(key=lambda x: x["date_time"])
+        logging.info(f"Loaded {len(messages_store)} messages from channel")
+        
     except Exception as e:
-        logging.error(f"Error loading history messages: {e}")
+        logging.error(f"Error loading messages: {e}")
 
-async def check_deleted_messages(bot):
-    """Периодически проверяет последние сообщения на наличие и удаляет отсутствующие"""
+async def check_for_updates():
+    """Проверяет новые сообщения и удаленные"""
+    global messages_store
+    
     while True:
         try:
-            if not messages_store:
-                await asyncio.sleep(CLEANUP_INTERVAL)
-                continue
+            # 1. Проверяем новые сообщения
+            latest_id = messages_store[-1]["id"] if messages_store else 0
+            new_messages = []
+            
+            async for message in bot.get_chat_history(TELEGRAM_CHANNEL, limit=10):
+                if message.message_id > latest_id:
+                    parsed = await parse_message(message)
+                    new_messages.append(parsed)
+            
+            if new_messages:
+                messages_store.extend(new_messages)
+                logging.info(f"Added {len(new_messages)} new messages")
+            
+            # 2. Проверяем удаленные сообщения
+            if messages_store:
+                recent_ids = [msg["id"] for msg in messages_store[-LAST_MESSAGES_TO_CHECK:]]
+                actual_ids = []
                 
-            # Получаем ID последних сообщений из хранилища
-            stored_ids = [msg['id'] for msg in messages_store[:LAST_MESSAGES_TO_CHECK]]
-            
-            # Получаем фактические сообщения из канала
-            actual_ids = []
-            async for message in bot.get_chat_history(TELEGRAM_CHANNEL, limit=LAST_MESSAGES_TO_CHECK):
-                actual_ids.append(message.message_id)
-            
-            # Находим сообщения, которые есть в хранилище, но отсутствуют в канале
-            deleted_ids = set(stored_ids) - set(actual_ids)
-            
-            if deleted_ids:
-                # Удаляем отсутствующие сообщения из хранилища
-                global messages_store
-                messages_store = [msg for msg in messages_store if msg['id'] not in deleted_ids]
-                logging.info(f"Removed {len(deleted_ids)} deleted messages from store")
+                async for message in bot.get_chat_history(TELEGRAM_CHANNEL, limit=LAST_MESSAGES_TO_CHECK):
+                    actual_ids.append(message.message_id)
+                
+                deleted_ids = set(recent_ids) - set(actual_ids)
+                if deleted_ids:
+                    messages_store = [msg for msg in messages_store if msg["id"] not in deleted_ids]
+                    logging.info(f"Removed {len(deleted_ids)} deleted messages")
             
         except Exception as e:
-            logging.error(f"Error checking deleted messages: {e}")
+            logging.error(f"Update check error: {e}")
         
-        await asyncio.sleep(CLEANUP_INTERVAL)
+        await asyncio.sleep(CHECK_INTERVAL)
 
-async def init_telegram_bot():
-    application = Application.builder().token(TELEGRAM_API_TOKEN).build()
-    application.add_handler(MessageHandler(filters.ALL, handle_message))
-    await application.initialize()
-    await application.start()
-    await application.updater.start_polling()
+# --- Обработчик новых сообщений ---
+@dp.channel_post()
+async def handle_new_message(message: types.Message):
+    """Обработчик новых сообщений в канале"""
+    global messages_store
+    
+    try:
+        parsed = await parse_message(message)
+        messages_store.append(parsed)
+        
+        # Поддерживаем лимит сообщений
+        if len(messages_store) > MESSAGE_LIMIT:
+            messages_store = messages_store[-MESSAGE_LIMIT:]
+            
+    except Exception as e:
+        logging.error(f"Error handling new message: {e}")
+
+# --- API Endpoints ---
+@app.get("/messages", response_model=List[ChannelMessage])
+async def get_messages(limit: int = API_MESSAGES_LIMIT):
+    """
+    Возвращает последние сообщения из канала
+    
+    Args:
+        limit: Количество возвращаемых сообщений (макс. API_MESSAGES_LIMIT)
+    
+    Returns:
+        Список сообщений в формате JSON
+    """
+    return messages_store[-limit:]
+
+# --- Запуск приложения ---
+@app.on_event("startup")
+async def startup():
+    """Запуск приложения FastAPI"""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    
+    # Проверяем обязательные переменные
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHANNEL:
+        raise ValueError("TELEGRAM_BOT_TOKEN and TELEGRAM_CHANNEL must be set in .env")
+    
+    # Запускаем бота
+    asyncio.create_task(dp.start_polling(bot))
     
     # Загружаем историю сообщений
-    await load_history_messages(application.bot)
+    await load_all_messages()
     
-    # Запускаем фоновую задачу проверки удаленных сообщений
-    asyncio.create_task(check_deleted_messages(application.bot))
-
-@app.on_event("startup")
-async def startup_event():
-    asyncio.create_task(init_telegram_bot())
+    # Запускаем фоновую задачу проверки обновлений
+    asyncio.create_task(check_for_updates())
+    
+    logging.info("Application started")
 
 if __name__ == "__main__":
     import uvicorn
-    logging.basicConfig(level=logging.INFO)
     uvicorn.run(app, host="0.0.0.0", port=8000)

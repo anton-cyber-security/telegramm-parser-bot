@@ -3,7 +3,7 @@ from telethon.tl.functions.messages import GetHistoryRequest
 from datetime import datetime
 from telethon.sync import TelegramClient
 import os ,time, asyncio
-import sqlite3
+import sqlite3, re
 load_dotenv()
 
 API_ID = int(os.getenv("API_ID"))
@@ -105,6 +105,7 @@ async def difference(list_messages, list_2):
     list_1 =[]
     for message in list_messages.messages:
         list_1.append(message.id)
+    print(list_1, list_2)
     ids_list = list(set(list_1) - set(list_2))
 
     return ids_list
@@ -125,12 +126,29 @@ async def difference2(list_messages, list_2):
 Скачиваем медиа
 '''
 async def download_media_our(client,message):
-    print(type(message.media))
     print(message)
     print(message.media)
     path = await client.download_media(message, "media/")
-    return path
+    type_media = await check_media_type(path)
+    return path, type_media
 
+
+
+
+'''
+Проверяем тип медиа
+'''
+async def check_media_type(filename):
+    pattern = r'\.(mp4|mov|avi|png|jpg|webp)$'
+    match = re.search(pattern, filename, re.IGNORECASE)
+
+    if match:
+        extension = match.group(1).lower()
+        if extension in ['mp4', 'mov', 'avi']:
+            return 'video'
+        elif extension in ['png', 'jpg', 'webp']:
+            return 'photo'
+    return 'unknown'
 
 
 '''
@@ -164,7 +182,7 @@ async def add_records(client = None, all_messages = None , append_ids = None):
                 if egida_telecom_message.message_id in append_ids:
 
                     if egida_telecom_message.media:
-                        id_media = await download_media_our(client, message)
+                        id_media, type_media = await download_media_our(client, message)
 
                     db.add_message(egida_telecom_message.message_id, egida_telecom_message.datetime,
                                 egida_telecom_message.message,
@@ -172,7 +190,7 @@ async def add_records(client = None, all_messages = None , append_ids = None):
 
             else:
                 if egida_telecom_message.media:
-                    id_media = await download_media_our(client, message)
+                    id_media, type_media = await download_media_our(client, message)
 
 
                 db.add_message(egida_telecom_message.message_id, egida_telecom_message.datetime,
@@ -255,7 +273,9 @@ async def first_launch(client,db):
         await asyncio.sleep(TIME_FOR_UPDATE)
         latest_messages = await periodic_request(client, MIN_ID[0])
 
+
         append_ids = await difference(latest_messages, all_message_id_from_db)
+
 
         if append_ids:
             MIN_ID[0] = await add_records(client, latest_messages, append_ids)

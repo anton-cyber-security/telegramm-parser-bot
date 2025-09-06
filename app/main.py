@@ -50,7 +50,7 @@ async def new_correct_message(message):
          message_text = message[2]
 
     if message[3]:
-        media =f"{PROTOCOL}://{DOMAIN}/{message[3][6:]}"
+        media =f"{PROTOCOL}://{DOMAIN}/static/{message[3][6:]}"
 
     if message[4]:
         type_media = message[4]

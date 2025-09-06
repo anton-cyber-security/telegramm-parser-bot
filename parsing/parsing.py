@@ -367,9 +367,10 @@ async def infinite_parsing(client,db):
 
 if __name__ == "__main__":
     try:
-
-
         os.chdir(ROOT_DIR)
+        os.makedirs("./data_base", exist_ok=True)
+        os.makedirs("./media", exist_ok=True)
+
         db = DataBase()
         client = TelegramClient("egidat", API_ID, API_HASH, device_model="iPhone 12 Pro",
                                 system_version="4.16.30-CUSTOM")

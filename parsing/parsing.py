@@ -1,4 +1,3 @@
-
 from dotenv import load_dotenv
 from telethon.tl.functions.messages import GetHistoryRequest
 from datetime import datetime

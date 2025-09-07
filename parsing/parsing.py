@@ -26,6 +26,7 @@ ROOT_DIR = os.getenv("ROOT_DIR")
 NAME_DB = os.getenv("NAME_DB")
 NAME_TABLE_ACTIVE_MESSAGES = os.getenv("NAME_TABLE_ACTIVE_MESSAGES")
 NAME_TABLE_PASSIVE_MESSAGES = os.getenv("NAME_TABLE_PASSIVE_MESSAGES")
+NAME_TABLE_MESSAGES = os.getenv("NAME_TABLE_MESSAGES")
 MIN_ID = [0]
 GROUPED_ID = [-1]
 
@@ -36,12 +37,11 @@ class DataBase():
         self.connection = sqlite3.connect(os.path.join("./data_base", self.name_db))
         self.cursor = self.connection.cursor()
 
-        self.create_table_active_messages()
-        self.create_table_passive_messages()
+        self.create_table_messages()
 
-    def create_table_active_messages(self):
+    def create_table_messages(self):
         try:
-            self.cursor.execute(f'''CREATE TABLE IF NOT EXISTS {NAME_TABLE_ACTIVE_MESSAGES}(
+            self.cursor.execute(f'''CREATE TABLE IF NOT EXISTS {NAME_TABLE_MESSAGES}(
             message_id INTEGER PRIMARY KEY,
             datetime DATETIME NOT NULL,
             message TEXT NULL,
@@ -53,53 +53,14 @@ class DataBase():
         except Exception as e:
             logger.error(f'create_table_active_messages failed: {e}')
 
-    def create_table_passive_messages(self):
-        try:
-            self.cursor.execute(f'''CREATE TABLE IF NOT EXISTS {NAME_TABLE_PASSIVE_MESSAGES}(
-            message_id INTEGER PRIMARY KEY,
-            datetime DATETIME NOT NULL,
-            message TEXT NULL,
-            media TEXT NULL,
-            type_media VARCHAR(256),
-            grouped_id BIGINT NULL)
-        ''')
-            self.connection.commit()
-
-        except Exception as e:
-            logger.error(f'create_table_passive_messages failed: {e}')
-
-
-    '''
-    Берем все message_id из не группированых сообщений или их одно главное сообщений 
-    '''
-    def get_all_active_id(self):
-        try:
-            self.cursor.execute(f'SELECT message_id FROM {NAME_TABLE_ACTIVE_MESSAGES}')
-            all_active_message_id = self.cursor.fetchall()
-            return all_active_message_id
-        except Exception as e:
-            logger.error(f'get_all_passive_id failed: {e}')
-
-    '''
-    Берем все message_id из группированных сообщений
-    '''
-    def get_all_passive_id(self):
-        try:
-            self.cursor.execute(f'SELECT message_id FROM {NAME_TABLE_PASSIVE_MESSAGES}')
-            all_passive_message_id = self.cursor.fetchall()
-            return all_passive_message_id
-        except Exception as e:
-            logger.error(f'get_all_passive_id failed: {e}')
-
     '''
     Берем все message_id
     '''
     def get_all_id(self):
-        try:
-            all_passive_messages_id = self.check_tuple(self.get_all_passive_id())
-            all_active_messages_id = self.check_tuple(self.get_all_active_id())
 
-            all_messages_id=list(set(all_passive_messages_id + all_active_messages_id))
+        try:
+            self.cursor.execute(f'SELECT message_id FROM {NAME_TABLE_MESSAGES}')
+            all_messages_id = DataBase.check_tuple(self.cursor.fetchall())
             return all_messages_id
 
         except Exception as e:
@@ -109,6 +70,7 @@ class DataBase():
     '''
     Добавление сообщения в БД
     '''
+
     def add_message(self, name_table, egida_telecom_message, media, type_media):
         try:
             self.cursor.execute(f'''
@@ -166,7 +128,8 @@ class DataBase():
     '''
     делаем элементы списка tuple -> int
     '''
-    def check_tuple(self, list_ids):
+    @staticmethod
+    def check_tuple(list_ids):
         if list_ids:
             if type(list_ids[0]) == tuple:
                 new_list_ids = [id[0] for id in list_ids]
@@ -179,27 +142,21 @@ class DataBase():
     '''
     Возвращаем все id для удаления
     '''
-    def get_id_for_delete(self, latest_messages):
+    def get_id_for_delete(self, telegram_list_messages):
         try:
-            latest_ids = []
 
-            all_passive_messages_id = self.check_tuple(self.get_all_passive_id())
-            all_active_messages_id = self.check_tuple(self.get_all_active_id())
+            latest_ids_from_telegram_where_there_is_text = []
+            for message in telegram_list_messages.messages:
+                if message.message != "" or message.message:
+                    latest_ids_from_telegram_where_there_is_text.append(message.id)
 
-            all_messages_id = list(set(all_passive_messages_id + all_active_messages_id))
 
-            sorted_messages_ids_bd = sorted(all_messages_id)[-len(latest_messages.messages):]
+            all_messages_id_from_db = self.get_all_id()
+            sorted_messages_ids_bd = sorted(all_messages_id_from_db)[-len(latest_ids_from_telegram_where_there_is_text):]
 
-            for message in latest_messages.messages:
-                latest_ids.append(message.id)
-            sorted_ids_now = sorted(latest_ids)
+            delete_messages_ids = list(set(sorted_messages_ids_bd) - set(latest_ids_from_telegram_where_there_is_text))
 
-            delete_messages_ids = list(set(sorted_messages_ids_bd) - set(sorted_ids_now))
-
-            delete_active_messages_ids = list(set(delete_messages_ids) & set(all_active_messages_id))
-            delete_passive_messages_ids = list(set(delete_messages_ids) & set(all_passive_messages_id))
-
-            return delete_active_messages_ids, delete_passive_messages_ids
+            return delete_messages_ids
 
         except Exception as e:
             logger.error(f'get_id_for_delete failed: {e}')
@@ -207,24 +164,34 @@ class DataBase():
     '''
     Ищем какие элементы есть в 1 списке но нет во 2 
     '''
-    def difference(self, list_messages):
+    def list_append_ids(self, telegram_list_messages):
         try:
-            list_2 =  self.check_tuple(self.get_all_id())
-            list_1 = []
-            for message in list_messages.messages:
-                list_1.append(message.id)
+            list_ids_from_db =  self.get_all_id()
+            list_ids_from_telegram = []
+            final_append_list = []
 
-            if list_2:
-                ids_list = list(set(list_1) - set(list_2))
+            for message in telegram_list_messages.messages:
+                list_ids_from_telegram.append(message.id)
+
+            if list_ids_from_db:
+                append_ids_list = list(set(list_ids_from_telegram) - set(list_ids_from_db))
+
+                if append_ids_list:
+                    for message in telegram_list_messages.messages:
+                        if message.id in append_ids_list:
+                            if message.message != "" or message.message:
+                                final_append_list.append(message.id)
 
             # если БД пустая
             else:
-                ids_list = list_1
+                for message in telegram_list_messages.messages:
+                    if message.message != "" or message.message:
+                        final_append_list.append(message.id)
 
-            return ids_list
+            return final_append_list
 
         except Exception as e:
-            logger.error(f'difference failed: {e}')
+            logger.error(f'list_append_ids failed: {e}')
 
 
 
@@ -273,46 +240,31 @@ async def check_media_type(filename):
 '''
 Добавление новых записей
 '''
-async def add_records(client = None, all_messages = None , append_ids = None, grouped_id = -1):
+async def add_records(client = None, all_messages = None , append_ids = None):
 
     try:
         min_id = 0
 
         for message in all_messages.messages:
-            id_media = None
+            path_media = None
             type_media = None
             egida_telecom_message = MessageEgidaTelecom(message.id, message.date, message.message, message.media, message.grouped_id)
-            if egida_telecom_message.message or egida_telecom_message.media:
-                if egida_telecom_message.message_id in append_ids:
 
-                    if egida_telecom_message.media:
-                        id_media, type_media = await download_media_our(client, message)
+            if egida_telecom_message.message_id in append_ids:
 
-                    # если сообщение содержиться в группе
-                    if egida_telecom_message.grouped_id:
+                if egida_telecom_message.media:
+                    path_media, type_media = await download_media_our(client, message)
 
-                        # если это 1 сообщение в объединенной группе
-                        if egida_telecom_message.grouped_id != grouped_id:
-                            grouped_id = egida_telecom_message.grouped_id
-                            name_table = NAME_TABLE_ACTIVE_MESSAGES
-
-                        # остальные сообщение в группе
-                        else:
-                            name_table = NAME_TABLE_PASSIVE_MESSAGES
-
-                    else:
-                        name_table = NAME_TABLE_ACTIVE_MESSAGES
-
-                    db.add_message(
-                        name_table,
-                        egida_telecom_message,
-                        id_media,
-                        type_media,
-                    )
+                db.add_message(
+                    NAME_TABLE_MESSAGES,
+                    egida_telecom_message,
+                    path_media,
+                    type_media,
+                )
 
             min_id = egida_telecom_message.message_id
 
-        return min_id, grouped_id
+        return min_id
 
     except Exception as e:
         logger.error(f'Add records Failed: {e}')
@@ -345,18 +297,15 @@ async def infinite_parsing(client,db):
     try:
         while True:
             latest_messages = await periodic_request(client, MIN_ID[0])
-            append_ids = db.difference(latest_messages)
+            append_ids = db.list_append_ids(latest_messages)
 
             if append_ids:
-                MIN_ID[0], GROUPED_ID[0] = await add_records(client, latest_messages, append_ids, GROUPED_ID[0])
+                MIN_ID[0] = await add_records(client, latest_messages, append_ids)
 
-            delete_active_messages_ids, delete_passive_messages_ids = db.get_id_for_delete(latest_messages)
+            delete_messages_ids= db.get_id_for_delete(latest_messages)
 
-            if delete_active_messages_ids:
-                db.delete_records(delete_active_messages_ids, NAME_TABLE_ACTIVE_MESSAGES)
-
-            if delete_passive_messages_ids:
-                db.delete_records(delete_passive_messages_ids, NAME_TABLE_PASSIVE_MESSAGES)
+            if delete_messages_ids:
+                db.delete_records(delete_messages_ids, NAME_TABLE_MESSAGES)
 
             logger.info("История обновленна")
             await asyncio.sleep(TIME_FOR_UPDATE)

@@ -11,20 +11,17 @@ class Message(BaseModel):
     media: str
     type_media: str
     grouped_id: int
+    link_to_message_in_telegram: str
 
     class Config:
         from_attributes = True
 
 
 
-class MessageGroup(BaseModel):
-    group_messages: list[Message]
-
-
-
 class MessagesPaginatedResponse(BaseModel):
-    all_group_messages: list[MessageGroup]
+    all_group_messages: list[Message]
     total: int
     limit: int
     offset: int
     has_more: bool
+    telegram_channel: str

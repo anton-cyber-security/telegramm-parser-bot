@@ -15,40 +15,28 @@ load_dotenv()
 
 
 class DataBase():
-    def __init__(self, root_dir, name_bd, name_table_active_messages, name_table_passive_messages ):
+    def __init__(self, root_dir, name_bd, name_table):
         self.name_db = name_bd
-        self.name_table_active_messages = name_table_active_messages
-        self.name_table_passive_messages = name_table_passive_messages
+        self.name_table = name_table
         self.connection = sqlite3.connect(os.path.join(f"{root_dir}/data_base", self.name_db))
         self.cursor = self.connection.cursor()
 
 
 
-    def get_active_messages(self, limit: int = 5, offset: int = 0) -> List[Tuple]:
+    def get_messages(self, limit: int = 5, offset: int = 0) -> List[Tuple]:
         self.cursor.execute(f'''
             SELECT *
-            FROM {self.name_table_active_messages}
+            FROM {self.name_table}
             ORDER BY datetime DESC 
             LIMIT ? OFFSET ?
         ''', (limit, offset))
 
-        active_messages = self.cursor.fetchall()
-        return active_messages
-
-    def get_passive_messages(self, grouped_id):
-        grouped_id_tuple = (grouped_id,)
-        self.cursor.execute(f'''
-                SELECT *
-                FROM {self.name_table_passive_messages}
-                WHERE grouped_id = ?
-        ''', (grouped_id_tuple))
-        passive_messages = self.cursor.fetchall()
-        return passive_messages
+        messages = self.cursor.fetchall()
+        return messages
 
     '''
     делаем элементы списка tuple -> list
     '''
-
     @staticmethod
     def from_tuple_to_list(list_messages):
         if list_messages:
@@ -64,7 +52,7 @@ class DataBase():
     Получить количество всех записей
     """
     def get_total_count(self) -> int:
-        self.cursor.execute(f"SELECT COUNT(*) FROM {self.name_table_active_messages}")
+        self.cursor.execute(f"SELECT COUNT(*) FROM {self.name_table}")
         total = self.cursor.fetchone()[0]
         return total
 

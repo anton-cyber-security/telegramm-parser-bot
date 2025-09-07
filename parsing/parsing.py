@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 from telethon.tl.functions.messages import GetHistoryRequest
 from datetime import datetime
 from telethon.sync import TelegramClient
-import os ,time, asyncio
+import os , asyncio
 import sqlite3, re
 import logging
 

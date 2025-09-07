@@ -18,17 +18,13 @@ load_dotenv()
 API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
 CHANNEL_ID = int(os.getenv('CHANNEL_ID'))
-SESSION = os.getenv('SESSION')
 TIME_FOR_UPDATE = float(os.getenv("TIME_FOR_UPDATE"))
 PHONE = os.getenv("PHONE")
 CODE = int(os.getenv("CODE"))
 ROOT_DIR = os.getenv("ROOT_DIR")
 NAME_DB = os.getenv("NAME_DB")
-NAME_TABLE_ACTIVE_MESSAGES = os.getenv("NAME_TABLE_ACTIVE_MESSAGES")
-NAME_TABLE_PASSIVE_MESSAGES = os.getenv("NAME_TABLE_PASSIVE_MESSAGES")
 NAME_TABLE_MESSAGES = os.getenv("NAME_TABLE_MESSAGES")
 MIN_ID = [0]
-GROUPED_ID = [-1]
 
 
 class DataBase():

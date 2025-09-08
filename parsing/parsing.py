@@ -4,7 +4,9 @@ from datetime import datetime
 from telethon.sync import TelegramClient
 import os , asyncio
 import sqlite3, re
-import logging
+import logging, uuid
+
+from telethon.tl.types import PeerChannel
 
 logging.basicConfig(
     level=logging.INFO,
@@ -175,13 +177,13 @@ class DataBase():
                 if append_ids_list:
                     for message in telegram_list_messages.messages:
                         if message.id in append_ids_list:
-                            if message.message != "" or message.message:
+                            if message.message != "" and message.message is not None:
                                 final_append_list.append(message.id)
 
             # если БД пустая
             else:
                 for message in telegram_list_messages.messages:
-                    if message.message != "" or message.message:
+                    if message.message != "" and message.message is not None:
                         final_append_list.append(message.id)
 
             return final_append_list
@@ -199,6 +201,37 @@ class MessageEgidaTelecom():
         self.media = media
         self.grouped_id = grouped_id
 
+
+
+'''
+Новое имя для файла
+'''
+def create_new_name_file(filename):
+    try:
+        name, extension = os.path.splitext(filename)
+
+        new_filename = f"{uuid.uuid4()}{extension}"
+
+        return new_filename
+
+    except Exception as e:
+        logger.error(f'create_new_name_file failed: {e}')
+
+
+'''
+Переименовываем файл
+'''
+def rename_file(old_filename, new_filename):
+    """
+    Переименовывает файл
+    """
+    try:
+        os.rename(old_filename, new_filename)
+
+    except Exception as e:
+        logger.error(f'rename_file failed: {e}')
+
+
 '''
 Скачиваем медиа
 '''
@@ -206,7 +239,9 @@ async def download_media_our(client,message):
     try:
         path = await client.download_media(message, "media/")
         type_media = await check_media_type(path)
-        return path, type_media
+        new_filename = f'media/{create_new_name_file(path[6:])}'
+        rename_file(path, new_filename)
+        return new_filename, type_media
 
     except Exception as e:
         logger.error(f'download_media_our Failed: {e}')
@@ -269,10 +304,10 @@ async def add_records(client = None, all_messages = None , append_ids = None):
 """
 Получение последних сообщений из канала
 """
-async def periodic_request(client, min_id):
+async def periodic_request(client, min_id, peer):
     try:
         latest_messages = await client(GetHistoryRequest(
-            peer=CHANNEL_ID,
+            peer=peer,
             limit=30,
             offset_id=0,
             offset_date=datetime.now(),
@@ -289,10 +324,10 @@ async def periodic_request(client, min_id):
 '''
 Постоянный парсинг сообщений
 '''
-async def infinite_parsing(client,db):
+async def infinite_parsing(client,db, peer):
     try:
         while True:
-            latest_messages = await periodic_request(client, MIN_ID[0])
+            latest_messages = await periodic_request(client, MIN_ID[0], peer)
             append_ids = db.list_append_ids(latest_messages)
 
             if append_ids:
@@ -321,9 +356,11 @@ if __name__ == "__main__":
                                 system_version="4.16.30-CUSTOM")
         client.connect()
         client.sign_in(PHONE)
-        # code = input('enter code: ')
+        #code = input('enter code: ')
         client.sign_in(phone=PHONE, code=CODE)
-        client.loop.run_until_complete(infinite_parsing(client, db))
+        username_channel = client.get_entity("https://t.me/EgidaTelecom")
+        peer = client.get_entity(PeerChannel(username_channel.id))
+        client.loop.run_until_complete(infinite_parsing(client, db, peer))
 
     except Exception as e:
         logger.error(f'Sign-in failed: {e}')

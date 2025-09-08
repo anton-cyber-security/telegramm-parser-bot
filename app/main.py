@@ -44,6 +44,10 @@ async def new_correct_message(message):
     media = ""
     type_media = ""
     grouped_id = -1
+    message_text =""
+
+    if message[2] is not None and message[2] != "":
+        message_text = message[2]
 
     if message[3]:
         media =f"{PROTOCOL}://{DOMAIN}/static/{message[3][6:]}"
@@ -54,7 +58,7 @@ async def new_correct_message(message):
     if message[5]:
         grouped_id = message[5]
 
-    return message[2], media, type_media, grouped_id
+    return message_text, media, type_media, grouped_id
 
 
 

@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         // Использование
-        const scrollableElement = document.getElementById('cardsContainer');
+        const scrollableElement = document.getElementById('CardsMessageContainer');
 
         scrollableElement.addEventListener('scroll', function() {
             if (checkScrollRight(this)) {

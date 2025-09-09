@@ -42,7 +42,7 @@ app.add_middleware(
 async def new_correct_message(message):
 
     media = ""
-    type_media = ""
+    type_media = "unknown"
     grouped_id = -1
     message_text =""
 
@@ -52,7 +52,7 @@ async def new_correct_message(message):
     if message[3]:
         media =f"{PROTOCOL}://{DOMAIN}/static/{message[3][6:]}"
 
-    if message[4]:
+    if message[4] is not None and message[4] != "":
         type_media = message[4]
 
     if message[5]:

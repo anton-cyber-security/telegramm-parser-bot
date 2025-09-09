@@ -125,7 +125,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
                 const messageFooter_element_a_1= document.createElement('a');
-                messageFooter_element_a_1.className = "icon-button"
+                messageFooter_element_a_1.className = "icon-button-news"
                 messageFooter_element_a_1.href = message.link_to_message_in_telegram	
 
                 const messageFooter_element_svg =  document.createElementNS('http://www.w3.org/2000/svg' , 'svg');

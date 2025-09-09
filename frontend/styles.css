@@ -22,6 +22,7 @@
       margin: 0 auto;
       padding: 0 20px;
       box-sizing: border-box;
+      scrollbar-width: none;
     }
 
     .scroll-container::-webkit-scrollbar {
@@ -40,8 +41,8 @@
 
     /* Стили карточек */
     .message {
-      background-color: #4b2470;
-      border-top: 3px solid #bb50fb;
+      background-color: #1f1f1f;
+      border-top: 3px solid #1f1f1f;
       position: relative;
       clip-path: polygon(
         0 0,
@@ -85,6 +86,18 @@
       font-weight: 400;
     }
 
+    .message-content img {
+      max-height: 170px;
+      width: auto;
+
+    }
+
+    .message-content video {
+      max-height: 170px;
+      width: auto;
+
+    }
+
     .message-footer {
       display: flex;
       align-items: center;
@@ -95,7 +108,7 @@
     .icon-button {
       width: 40px;
       height: 40px;
-      background-color: #8539CD;
+      background-color: #881515;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -115,7 +128,7 @@
     }
 
     .more-text {
-      color: #bb50fb;
+      color: #881515;
       font-weight: 600;
       font-size: 14px;
       text-decoration: none;
@@ -143,4 +156,9 @@
 
     .slider-dot.active {
       background-color: #8539CD;
-    }    
+    }   
+    
+    .update_button {
+      width: 50px;
+      height: 50px;
+    }

@@ -11,6 +11,11 @@ class HorizontalScroll{
     init() {
         this.bindEvents();
         this.applyStyles();
+        this.resetScroll();
+    }
+
+    resetScroll() {
+        this.container.scrollLeft = 0;
     }
     
     bindEvents() {

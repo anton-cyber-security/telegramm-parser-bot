@@ -92,10 +92,10 @@ document.addEventListener('DOMContentLoaded', function() {
             // Проверяем, достигнут ли правый конец
             const isAtRightEnd = element.scrollWidth - element.scrollLeft === element.clientWidth;
             
-            // Допуск в 1-2 пикселя для избежания неточностей
+            // Допуск в X пикселей для начало загрузки новостей неточностей
             const isAtRightEndWithTolerance = Math.abs(
                 element.scrollWidth - element.scrollLeft - element.clientWidth
-            ) <= 2;
+            ) <= 800;
             
             return isAtRightEndWithTolerance;
         }

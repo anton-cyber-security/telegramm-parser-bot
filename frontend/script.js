@@ -9,6 +9,7 @@ class HorizontalScroll{
     }
     
     init() {
+        console.log("init")
         this.bindEvents();
         this.applyStyles();
         this.resetScroll();
@@ -90,12 +91,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const messagesContainer = document.getElementById('messages-container');
         let offset = 0;
         let limit = 5;
+        let flag_load_messages = false;
         const message_ids = new Array();
         const BACKEND_URL = messagesContainer.dataset.backend;
         
         function checkScrollRight(element) {
-            // Проверяем, достигнут ли правый конец
-            const isAtRightEnd = element.scrollWidth - element.scrollLeft === element.clientWidth;
             
             // Допуск в X пикселей для начало загрузки новостей неточностей
             const isAtRightEndWithTolerance = Math.abs(
@@ -109,9 +109,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const scrollableElement = document.getElementById('CardsMessageContainer');
 
         scrollableElement.addEventListener('scroll', function() {
-            if (checkScrollRight(this)) {
+            if (flag_load_messages){
+              if (checkScrollRight(this)) {
+                flag_load_messages = false;     
                 loadMessages()
+              }
             }
+            
         });
         function connectToBackend() {
      
@@ -142,7 +146,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                     offset = offset + 5
                     console.log(offset)
-
+                    flag_load_messages = true;
 
 
                     
@@ -166,6 +170,7 @@ document.addEventListener('DOMContentLoaded', function() {
           }
 
         function addMessageToUI(message) {
+                console.log("addMessageToUI")
                 const messageElement = document.createElement('div');
                 messageElement.className = 'message';
                 

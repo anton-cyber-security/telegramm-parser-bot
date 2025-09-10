@@ -92,6 +92,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let offset = 0;
         let limit = 5;
         let flag_load_messages = false;
+        let flag_no_finish_messages = true;
         const message_ids = new Array();
         const BACKEND_URL = messagesContainer.dataset.backend;
         
@@ -129,24 +130,32 @@ document.addEventListener('DOMContentLoaded', function() {
 
         async function loadMessages() {
                 try {
-                    const response = await fetch(`${BACKEND_URL}/messages?limit=${limit}&offset=${offset}`);
-                    const response_json = await response.json();
-                    const messages = response_json.all_group_messages
-                    
-                    console.log(messages)
-                    
-                    messages.forEach(message => {
-                        if (message_ids.includes(message.message_id)){
-                        }
-                        else {
-                          message_ids.push(message.message_id)
-                          addMessageToUI(message);
+
+                    if (flag_no_finish_messages){
+                        const response = await fetch(`${BACKEND_URL}/messages?limit=${limit}&offset=${offset}`);
+                        const response_json = await response.json();
+                        const messages = response_json.all_group_messages
+                        
+                        console.log(messages)
+                        if (messages.length === 0){
+                          console.log("block")
+                          flag_no_finish_messages = false;
                         }
                         
-                    });
-                    offset = offset + 5
-                    console.log(offset)
-                    flag_load_messages = true;
+                        messages.forEach(message => {
+                            if (message_ids.includes(message.message_id)){
+                            }
+                            else {
+                              message_ids.push(message.message_id)
+                              addMessageToUI(message);
+                            }
+                            
+                        });
+                        offset = offset + 5
+                        console.log(offset)
+                        flag_load_messages = true;
+                    }
+                    
 
 
                     

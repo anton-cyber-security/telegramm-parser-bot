@@ -23,11 +23,14 @@
       padding: 0 20px;
       box-sizing: border-box;
       scrollbar-width: none;
+      cursor: grab;
     }
 
     .scroll-message-container::-webkit-scrollbar {
       display: none;
     }
+
+
 
     .messages-container {
       display: inline-flex;

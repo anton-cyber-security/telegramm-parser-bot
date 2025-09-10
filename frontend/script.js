@@ -1,4 +1,86 @@
+class HorizontalScroll{
+    constructor(container) {
+        this.container = container;
+        this.isDragging = false;
+        this.startX = 0;
+        this.scrollLeft = 0;
+        
+        this.init();
+    }
+    
+    init() {
+        this.bindEvents();
+        this.applyStyles();
+    }
+    
+    bindEvents() {
+        this.container.addEventListener('mousedown', this.handleMouseDown.bind(this));
+        this.container.addEventListener('mousemove', this.handleMouseMove.bind(this));
+        this.container.addEventListener('mouseup', this.handleMouseUp.bind(this));
+        this.container.addEventListener('mouseleave', this.handleMouseUp.bind(this));
+        this.container.addEventListener('selectstart', this.handleSelectStart.bind(this));
+    }
+    
+    applyStyles() {
+        this.container.style.cursor = 'grab';
+        this.container.style.userSelect = 'none';
+        this.container.style.webkitUserSelect = 'none';
+    }
+    
+    handleMouseDown(e) {
+        this.isDragging = true;
+        this.startX = e.pageX - this.container.offsetLeft;
+        this.scrollLeft = this.container.scrollLeft;
+        this.container.style.cursor = 'grabbing';
+        const originalScrollBehavior = this.container.style.scrollBehavior;
+        this.container.style.scrollBehavior = 'auto';
+        this.originalScrollBehavior = originalScrollBehavior;
+    }
+    
+    handleMouseMove(e) {
+        if (!this.isDragging) return;
+        e.preventDefault();
+        
+        const x = e.pageX - this.container.offsetLeft;
+        const walk = (x - this.startX) * 2; // Множитель для скорости
+        this.container.scrollLeft = this.scrollLeft - walk;
+    }
+    
+    handleMouseUp() {
+        if (!this.isDragging) return;
+        
+        this.isDragging = false;
+        this.container.style.cursor = 'grab';
+        if (this.originalScrollBehavior !== undefined) {
+            this.container.style.scrollBehavior = this.originalScrollBehavior;
+        }
+    }
+    
+    handleSelectStart(e) {
+        if (this.isDragging) {
+            e.preventDefault();
+        }
+    }
+    
+    destroy() {
+        this.container.removeEventListener('mousedown', this.handleMouseDown);
+        this.container.removeEventListener('mousemove', this.handleMouseMove);
+        this.container.removeEventListener('mouseup', this.handleMouseUp);
+        this.container.removeEventListener('mouseleave', this.handleMouseUp);
+        this.container.removeEventListener('selectstart', this.handleSelectStart);
+
+        this.container.style.cursor = '';
+        this.container.style.userSelect = '';
+        this.container.style.webkitUserSelect = '';
+    }
+}
+
+
 document.addEventListener('DOMContentLoaded', function() {
+        const scrollContainers = document.querySelectorAll('.scroll-message-container');
+        scrollContainers.forEach(container => {
+              new HorizontalScroll(container);
+        });
 
         const messagesContainer = document.getElementById('messages-container');
         let offset = 0;
@@ -44,7 +126,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     console.log(messages)
                     
-                    messages.reverse().forEach(message => {
+                    messages.forEach(message => {
                         if (message_ids.includes(message.message_id)){
                         }
                         else {
@@ -55,6 +137,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                     offset = offset + 5
                     console.log(offset)
+
 
 
                     

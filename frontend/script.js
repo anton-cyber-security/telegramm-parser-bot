@@ -197,11 +197,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         case 'video':
                             const video = document.createElement('video');
                             video.src = message.media;
-                            video.controls = false;
-                            video.setAttribute("autoplay", "autoplay");
-                            video.setAttribute("muted", "muted"); 
-                            video.setAttribute("playsinline", "playsinline");
-                            video.setAttribute("loop", "loop");
+                            video.controls = true; 
                             messageContent.appendChild(video);
                             break;
                         

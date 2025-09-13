@@ -145,7 +145,7 @@ class DataBase():
 
             latest_ids_from_telegram_where_there_is_text = []
             for message in telegram_list_messages.messages:
-                if message.message != "" or message.message:
+                if message.message != "" and message.message is not None:
                     latest_ids_from_telegram_where_there_is_text.append(message.id)
 
 

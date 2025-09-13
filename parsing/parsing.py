@@ -100,9 +100,9 @@ class DataBase():
     def delete_media(self, all_media):
         try:
             for media in all_media:
-                abs_path = os.path.join(ROOT_DIR, media[0])
-                os.remove(abs_path)
-
+                if media != "" and media is not None:
+                    abs_path = os.path.join(ROOT_DIR, media[0])
+                    os.remove(abs_path)
 
         except Exception as e:
             logger.warning(f'delete_media failed: {e, all_media}')
@@ -244,7 +244,9 @@ async def download_media_our(client,message):
         return new_filename, type_media
 
     except Exception as e:
-        logger.error(f'download_media_our Failed: {e}')
+        logger.warning(f'download_media_our Failed: {e}')
+        return "" , 'unknown'
+
 
 
 
@@ -265,7 +267,8 @@ async def check_media_type(filename):
         return 'unknown'
 
     except Exception as e:
-        logger.error(f'check_media_type Failed: {e}')
+        logger.warning(f'check_media_type Failed: {e}')
+        return 'unknown'
 
 
 '''

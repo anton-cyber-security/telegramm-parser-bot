@@ -89,6 +89,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         const messagesContainer = document.getElementById('messages-container');
+        let count_display_message = 0;
         let offset = 0;
         let limit = 5;
         let flag_load_messages = false;
@@ -99,9 +100,13 @@ document.addEventListener('DOMContentLoaded', function() {
         function checkScrollRight(element) {
             
             // Допуск в X пикселей для начало загрузки новостей неточностей
+            console.log(element.scrollWidth)
+            console.log(element.scrollLeft)
+            console.log(element.clientWidth)
+
             const isAtRightEndWithTolerance = Math.abs(
                 element.scrollWidth - element.scrollLeft - element.clientWidth
-            ) <= 800;
+            ) <= 300;
             
             return isAtRightEndWithTolerance;
         }
@@ -130,7 +135,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         async function loadMessages() {
                 try {
-
+                    
                     if (flag_no_finish_messages){
                         const response = await fetch(`${BACKEND_URL}/messages?limit=${limit}&offset=${offset}`);
                         const response_json = await response.json();
@@ -148,12 +153,15 @@ document.addEventListener('DOMContentLoaded', function() {
                             else {
                               message_ids.push(message.message_id)
                               addMessageToUI(message);
-                            }
-                            
+                            }                           
                         });
                         offset = offset + 5
-                        console.log(offset)
                         flag_load_messages = true;
+
+                        if (count_display_message < 5){
+                            loadMessages();
+                        }
+                                                
                     }
                     
 
@@ -210,6 +218,9 @@ document.addEventListener('DOMContentLoaded', function() {
                             break;
                         
                         case 'unknown':
+                            
+                            return 0
+
                             const img_base = document.createElement('img');
                             img_base.src = "https://optim.tildacdn.com/tild3333-3739-4830-b230-343237313965/-/resize/340x/-/format/webp/photo.png.webp";
                             img_base.alt = 'Egida Telecom';
@@ -241,7 +252,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const messageFooter_element_path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
 
                 messageFooter_element_path.setAttribute('d', "M7 17L17 7M17 7H7M17 7V17")
-                messageFooter_element_path.setAttribute('stroke', "black")
+                messageFooter_element_path.setAttribute('stroke', "white")
                 messageFooter_element_path.setAttribute('fill', "none")
                 messageFooter_element_path.setAttribute('stroke-linejoin', "round")
                 messageFooter_element_path.setAttribute('stroke-linecap', "round")
@@ -270,6 +281,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Вставляем новое сообщение в начало
                 messagesContainer.appendChild(messageElement);
+                count_display_message = count_display_message + 1
+                
                 
 
         }

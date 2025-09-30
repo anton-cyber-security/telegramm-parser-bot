@@ -44,7 +44,7 @@
 
     /* Стили карточек */
     .message {
-      background-color: #1f1f1f;
+      background-color: #5d0000;
       border-top: 3px solid #1f1f1f;
       position: relative;
       clip-path: polygon(
@@ -123,7 +123,7 @@
     .icon-button-news {
       width: 40px;
       height: 40px;
-      background-color: #881515;
+      background-color: #000000;
       display: flex;
       align-items: center;
       justify-content: center;

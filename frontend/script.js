@@ -185,35 +185,43 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 const messageContent = document.createElement('div');
                 messageContent.className = 'message-content'
+
+
+                const messageContentMedia = document.createElement('div');
+                messageContentMedia.className = 'message-content-media'
+
+                const messageContentText = document.createElement('div');
+                messageContentText.className = 'message-content-text'
+
                 
                 switch(message.type_media) {
                         case 'photo':
                             const img = document.createElement('img');
                             img.src = message.media;
                             img.alt = 'Egida Telecom';
-                            messageContent.appendChild(img);
+                            messageContentMedia.appendChild(img);
                             break;
                         
                         case 'video':
                             const video = document.createElement('video');
                             video.src = message.media;
                             video.controls = true; 
-                            messageContent.appendChild(video);
+                            messageContentMedia.appendChild(video);
                             break;
                         
                         case 'unknown':
                             const img_base = document.createElement('img');
                             img_base.src = "https://optim.tildacdn.com/tild3333-3739-4830-b230-343237313965/-/resize/340x/-/format/webp/photo.png.webp";
                             img_base.alt = 'Egida Telecom';
-                            messageContent.appendChild(img_base);
+                            messageContentMedia.appendChild(img_base);
                             break;
                             
                         
 
                 }
                 const text = document.createElement('p');
-                            text.textContent  = getFirstWords(message.message, 20, true);
-                            messageContent.appendChild(text);
+                            text.textContent  = getFirstWords(message.message, 15, true);
+                            messageContentText.appendChild(text);
                 
                 
 
@@ -252,7 +260,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 messageFooter.appendChild(messageFooter_element_a_1)
                 messageFooter.appendChild(messageFooter_element_a_2)
                 
+
+                messageContent.appendChild(messageContentMedia)
+                messageContent.appendChild(messageContentText)
                 messageContent.appendChild(messageFooter)
+
                 messageElement.appendChild(messageContent)
                 
                 

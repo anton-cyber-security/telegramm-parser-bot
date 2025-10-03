@@ -1,0 +1,6 @@
+FROM python:3.10-slim-bookworm
+WORKDIR /
+COPY ../requirements.txt /parsing/requirements.txt
+RUN pip install -r /parsing/requirements.txt
+COPY ../parsing /parsing
+CMD ["python", "/parsing/parsing.py"]

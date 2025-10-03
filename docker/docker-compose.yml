@@ -1,0 +1,85 @@
+
+services:
+  # FAST_API SERVER
+  WEB_APP:
+    container_name: WEB_APP
+    build:
+      context: ./
+      dockerfile: DockerfileApp
+    image: web-app:v1
+    restart: unless-stopped
+    volumes:
+      - data_base:/data_base
+    ports:
+      - "8090:8090"
+    environment:
+      - ROOT_DIR=${WEB_APPLICATION_ROOT_DIR}
+      - NAME_DB=${NAME_DB}
+      - DOMAIN=${DOMAIN}
+      - PROTOCOL=${PROTOCOL}
+      - NAME_TABLE_MESSAGES=${NAME_TABLE_MESSAGES}
+      - TELEGRAM_CHANNEL=${TELEGRAM_CHANNEL}
+    command: ["python", "/app/main.py"]
+    networks:
+      - telegram-news
+    depends_on:
+      - PARSING
+    deploy:
+      resources:
+        limits:
+          cpus: '0.3'
+          memory: 256M
+
+  # PARSING
+  PARSING:
+    container_name: PARSING
+    build:
+      context: ./
+      dockerfile: DockerfileParser
+    image: parsing:v1
+    restart: unless-stopped
+    volumes:
+      - data_base:/data_base
+      - media:/media
+      - session:/session
+    environment:
+      - API_ID=${API_ID}
+      - API_HASH=${API_HASH}
+      - CHANNEL_ID=${CHANNEL_ID}
+      - TIME_FOR_UPDATE=${TIME_FOR_UPDATE}
+      - PHONE=${PHONE}
+      - CODE=${CODE}
+      - ROOT_DIR=${PARSING_ROOT_DIR}
+      - NAME_DB=${NAME_DB}
+      - NAME_TABLE_MESSAGES=${NAME_TABLE_MESSAGES}
+    command: ["python", "/parsing/parsing.py"]
+    networks:
+      - telegram-news
+    deploy:
+      resources:
+        limits:
+          cpus: '0.3'
+          memory: 256M
+
+volumes:
+  media:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ../media
+  data_base:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ../data_base
+  session:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ../session
+networks:
+  telegram-news:
+    driver: bridge

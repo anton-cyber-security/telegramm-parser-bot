@@ -1,7 +1,12 @@
 __pycache__/
 .idea/
 venv/
-media/
+media/*
+!media/.gitkeep
+data_base/*
+!data_base/.gitkeep
+session/*
+!session/.gitkeep
 *.env
 *.session
 *.db

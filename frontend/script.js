@@ -9,7 +9,6 @@ class HorizontalScroll{
     }
     
     init() {
-        console.log("init")
         this.bindEvents();
         this.applyStyles();
         this.resetScroll();
@@ -99,11 +98,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         function checkScrollRight(element) {
             
-            // Допуск в X пикселей для начало загрузки новостей неточностей
-            console.log(element.scrollWidth)
-            console.log(element.scrollLeft)
-            console.log(element.clientWidth)
-
             const isAtRightEndWithTolerance = Math.abs(
                 element.scrollWidth - element.scrollLeft - element.clientWidth
             ) <= 300;
@@ -140,10 +134,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         const response = await fetch(`${BACKEND_URL}/messages?limit=${limit}&offset=${offset}`);
                         const response_json = await response.json();
                         const messages = response_json.all_group_messages
-                        
-                        console.log(messages)
                         if (messages.length === 0){
-                          console.log("block")
                           flag_no_finish_messages = false;
                         }
                         
@@ -187,7 +178,6 @@ document.addEventListener('DOMContentLoaded', function() {
           }
 
         function addMessageToUI(message) {
-                console.log("addMessageToUI")
                 const messageElement = document.createElement('div');
                 messageElement.className = 'message';
                 

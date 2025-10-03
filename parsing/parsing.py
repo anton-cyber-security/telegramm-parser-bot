@@ -329,6 +329,7 @@ async def periodic_request(client, min_id, peer):
 '''
 async def infinite_parsing(client,db, peer):
     try:
+        os.chdir(ROOT_DIR)
         while True:
             latest_messages = await periodic_request(client, MIN_ID[0], peer)
             append_ids = db.list_append_ids(latest_messages)
@@ -353,14 +354,19 @@ if __name__ == "__main__":
         os.chdir(ROOT_DIR)
         os.makedirs("./data_base", exist_ok=True)
         os.makedirs("./media", exist_ok=True)
+        os.makedirs("./session", exist_ok=True)
 
         db = DataBase()
+        os.chdir("/session")
         client = TelegramClient("egidat", API_ID, API_HASH, device_model="iPhone 12 Pro",
                                 system_version="4.16.30-CUSTOM")
         client.connect()
         client.sign_in(PHONE)
-        #code = input('enter code: ')
-        client.sign_in(phone=PHONE, code=CODE)
+        code = 0
+        code = CODE
+        if code == 0:
+            code = input(f'enter code for number phone {PHONE}:')
+        client.sign_in(phone=PHONE, code=code)
         username_channel = client.get_entity("https://t.me/EgidaTelecom")
         peer = client.get_entity(PeerChannel(username_channel.id))
         client.loop.run_until_complete(infinite_parsing(client, db, peer))
